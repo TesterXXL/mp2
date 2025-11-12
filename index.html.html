@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculateur de moyenne (coeffs fournis)</title>
+  <style>
+    :root{
+      --bg: #0f172a;           /* slate-900 */
+      --panel:#111827;         /* gray-900 */
+      --muted:#334155;         /* slate-700 */
+      --soft:#1f2937;          /* gray-800 */
+      --ink:#e5e7eb;           /* gray-200 */
+      --accent:#22d3ee;        /* cyan-400 */
+      --accent-2:#a78bfa;      /* violet-400 */
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --radius: 16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(120deg, #0b1220, #0f172a 40%, #0b1220 100%);
+      color:var(--ink); line-height:1.45;
+    }
+    header{
+      max-width:1100px; margin:24px auto 8px; padding:0 16px;
+    }
+    h1{font-weight:800; letter-spacing:.2px; margin:.2rem 0 0.6rem; font-size: clamp(1.4rem, 1.2rem + 1.5vw, 2.2rem)}
+    .sub{color:#9ca3af}
+
+    .wrapper{max-width:1100px; margin:0 auto 80px; padding:16px}
+    .grid{display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));}
+
+    .card{
+      background: radial-gradient(120% 120% at 0% 0%, rgba(167,139,250,.05), transparent 60%),
+                  linear-gradient(180deg, rgba(31,41,55,.6), rgba(17,24,39,.7));
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:var(--radius); padding:18px 16px 14px; position:relative; overflow:hidden;
+    }
+    .card h2{margin:0 0 8px; font-size:1.05rem; font-weight:700}
+    .coeff{position:absolute; top:14px; right:14px; background:rgba(2,132,199,.15); color:#7dd3fc; padding:4px 10px; border-radius:999px; font-size:.8rem; border:1px solid rgba(125,211,252,.3)}
+
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0}
+    .row label{font-size:.8rem; color:#cbd5e1}
+    input[type="number"]{
+      width:100%; background:var(--panel); border:1px solid rgba(148,163,184,.25);
+      color:var(--ink); border-radius:12px; padding:10px 12px; outline:none; transition:.2s;
+    }
+    input[type="number"]:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(34,211,238,.15)}
+
+    .note{font-size:.78rem; color:#9ca3af; margin-top:6px}
+    .avg{margin-top:10px; font-weight:700}
+
+    .kpi{
+      display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin:16px 0 8px;
+    }
+    .tile{background:linear-gradient(180deg, rgba(2,132,199,.12), rgba(2,132,199,0)); border:1px solid rgba(125,211,252,.35); padding:16px; border-radius:var(--radius)}
+    .tile h3{margin:0; font-size:.95rem; font-weight:700; color:#a5f3fc}
+    .big{font-size:2rem; font-weight:800; letter-spacing:.5px; margin-top:8px}
+
+    .footer{max-width:1100px; margin:14px auto 36px; padding:0 16px; color:#9ca3af; font-size:.86rem}
+    .btns{display:flex; gap:10px; margin-top:8px}
+    button{
+      cursor:pointer; border:1px solid rgba(148,163,184,.28); background:var(--soft); color:var(--ink);
+      padding:10px 14px; border-radius:12px; font-weight:600; transition:.2s; 
+    }
+    button:hover{transform:translateY(-1px); border-color: var(--accent);}
+    .ghost{background:transparent}
+    .ok{border-color: rgba(34,197,94,.45);}
+
+    .inline-help{font-size:.78rem; color:#a5b4fc}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Calculateur de moyenne • L1</h1>
+    <div class="sub">Saisis tes notes (sur 20). Les pondérations sont appliquées automatiquement : <strong>avec TP</strong> → DS 25%, Examen 40%, Test 15%, TP 20%. <strong>sans TP</strong> → DS 35%, Examen 50%, Test 15%.<br/>STA = 40% <em>MSI</em> + 60% <em>Automatique</em>. Moyenne générale = somme(matière × coeff) ÷ 44.</div>
+  </header>
+
+  <div class="wrapper">
+
+    <section class="kpi" id="kpis">
+      <div class="tile"><h3>Moyenne générale</h3><div class="big" id="overall">0.00</div></div>
+      <div class="tile"><h3>Somme pondérée</h3><div class="big" id="weighted-sum">0.00</div></div>
+      <div class="tile"><h3>Somme des coeffs</h3><div class="big" id="coeff-sum">44</div></div>
+    </section>
+
+    <div class="btns">
+      <button id="reset" class="ghost">Réinitialiser</button>
+      <button id="prefill" title="Exemple rapide">Pré-remplir un exemple</button>
+    </div>
+
+    <div class="grid" id="subjects"></div>
+
+  </div>
+
+  <div class="footer">Astuce : tu peux entrer des décimales (ex : 13.5). Les valeurs sont bornées entre 0 et 20.</div>
+
+  <template id="card-template">
+    <div class="card">
+      <div class="coeff">Coeff <span class="cVal"></span></div>
+      <h2 class="title"></h2>
+      <div class="row">
+        <label>DS
+          <input type="number" step="0.01" min="0" max="20" class="inp ds" placeholder="0–20" />
+        </label>
+        <label>Examen
+          <input type="number" step="0.01" min="0" max="20" class="inp exam" placeholder="0–20" />
+        </label>
+      </div>
+      <div class="row">
+        <label>Test
+          <input type="number" step="0.01" min="0" max="20" class="inp test" placeholder="0–20" />
+        </label>
+        <label class="tp-wrap">TP
+          <input type="number" step="0.01" min="0" max="20" class="inp tp" placeholder="0–20" />
+        </label>
+      </div>
+      <div class="inline-help"></div>
+      <div class="avg">Moyenne : <span class="avgVal">—</span></div>
+      <div class="note"></div>
+    </div>
+  </template>
+
+  <script>
+    // ---- Configuration des matières (coeff + présence de TP) ----
+    const TOTAL_COEFF = 44;
+    const SUBJECTS = [
+      { key: 'algebre',   name: 'Algèbre',              coeff: 6, hasTP: false },
+      { key: 'analyse',   name: 'Analyse',              coeff: 8, hasTP: false },
+      { key: 'physique',  name: 'Physique',             coeff: 10, hasTP: true  },
+      { key: 'chimie',    name: 'Chimie inorganique',   coeff: 4, hasTP: true  },
+      { key: 'fr',        name: 'Français',             coeff: 3, hasTP: false },
+      { key: 'en',        name: 'Anglais',              coeff: 3, hasTP: false },
+      { key: 'info',      name: 'Informatique',         coeff: 4, hasTP: false },
+      // STA est une matière composée : on affiche une carte spéciale ci‑dessous
+    ];
+
+    const STA = {
+      coeff: 6,
+      msi:  { key:'sta_msi',  name:'STA – MSI (40%)',         hasTP:false },
+      auto: { key:'sta_auto', name:'STA – Automatique (60%)', hasTP:false }
+    }
+
+    // ---- Utilitaires ----
+    const clamp20 = v => (isNaN(v) ? null : Math.max(0, Math.min(20, v)));
+    const valueOrZero = v => (v == null ? 0 : v);
+    const fmt = (n) => (n == null || isNaN(n)) ? '—' : n.toFixed(2);
+
+    function computeSimple(ds, exam, test, hasTP, tp){
+      const CDS = hasTP ? 0.25 : 0.35;
+      const CEX = hasTP ? 0.40 : 0.50;
+      const CT  = 0.15;
+      const CTP = hasTP ? 0.20 : 0.00;
+      return valueOrZero(ds)*CDS + valueOrZero(exam)*CEX + valueOrZero(test)*CT + valueOrZero(tp)*CTP;
+    }
+
+    function buildCard(container, spec){
+      const tpl = document.getElementById('card-template');
+      const node = tpl.content.firstElementChild.cloneNode(true);
+      node.dataset.key = spec.key;
+      node.querySelector('.title').textContent = spec.name;
+      node.querySelector('.cVal').textContent = spec.coeff ?? '—';
+
+      // Gérer la présence de TP
+      const tpWrap = node.querySelector('.tp-wrap');
+      if (!spec.hasTP) {
+        tpWrap.style.display = 'none';
+        node.querySelector('.inline-help').textContent = 'Sans TP → DS 35%, Examen 50%, Test 15%';
+      } else {
+        node.querySelector('.inline-help').textContent = 'Avec TP → DS 25%, Examen 40%, Test 15%, TP 20%';
+      }
+
+      // Écouteurs
+      node.querySelectorAll('.inp').forEach(inp => {
+        inp.addEventListener('input', () => { calcOne(node, spec); calcAll(); });
+      });
+
+      container.appendChild(node);
+      return node;
+    }
+
+    function calcOne(card, spec){
+      const dsRaw   = parseFloat(card.querySelector('.ds').value);
+      const exRaw   = parseFloat(card.querySelector('.exam').value);
+      const teRaw   = parseFloat(card.querySelector('.test').value);
+      const tpEl = card.querySelector('.tp');
+
+      const ds = clamp20(dsRaw);
+      const exam = clamp20(exRaw);
+      const test = clamp20(teRaw);
+      let tp = null;
+      if (tpEl) tp = clamp20(parseFloat(tpEl.value));
+
+      [ ['.ds',ds], ['.exam',exam], ['.test',test], ['.tp',tp] ].forEach(([sel,val])=>{
+        const el = card.querySelector(sel); if(!el) return; if(val!=null) el.value = val;
+      });
+
+      const m = computeSimple(ds, exam, test, spec.hasTP, spec.hasTP ? tp : 0);
+      card.querySelector('.avgVal').textContent = fmt(m);
+      return m;
+    }
+
+    function calcAll(){
+      let weighted = 0;
+
+      // Matières simples (hors STA)
+      document.querySelectorAll('.card').forEach(card => {
+        const key = card.dataset.key;
+        if (!key) return;
+        if (key === 'sta_msi' || key === 'sta_auto') return; // STA calculé séparément
+        const spec = SUBJECTS.find(s=>s.key===key);
+        if (!spec) return;
+        const avg = calcOne(card, spec);
+        weighted += avg * (spec.coeff || 0);
+      });
+
+      // STA (composé)
+      const staM = document.querySelector('.card[data-key="sta_msi"]');
+      const staA = document.querySelector('.card[data-key="sta_auto"]');
+      const msiAvg  = calcOne(staM, { ...STA.msi, hasTP:false });
+      const autoAvg = calcOne(staA, { ...STA.auto, hasTP:false });
+      const staAvg = 0.4*msiAvg + 0.6*autoAvg;
+      weighted += staAvg * STA.coeff;
+      const parentTitle = document.getElementById('sta-parent-title');
+      if(parentTitle){ parentTitle.textContent = `STA = ${fmt(staAvg)} (0.4×MSI + 0.6×Automatique)`; }
+
+      document.getElementById('weighted-sum').textContent = fmt(weighted);
+      const overall = weighted / TOTAL_COEFF;
+      document.getElementById('overall').textContent = fmt(overall);
+      const overallEl = document.getElementById('overall');
+      overallEl.style.color = (overall>=10? 'var(--good)' : 'var(--bad)');
+    }
+
+    function extractAvg(card){
+      const txt = card?.querySelector('.avgVal')?.textContent;
+      if (!txt || txt === '—') return null;
+      const val = parseFloat(txt.replace(',', '.'));
+      return isNaN(val) ? null : val;
+    }
+
+    function makeUI(){
+      const host = document.getElementById('subjects');
+      // cartes simples
+      SUBJECTS.forEach(s => buildCard(host, s));
+
+      // STA parent (titre info)
+      const staHeader = document.createElement('div');
+      staHeader.className = 'card';
+      staHeader.innerHTML = `<div class="coeff">Coeff ${STA.coeff}</div><h2 id="sta-parent-title">STA</h2><div class="note">Saisis les notes de MSI et d'Automatique ci‑dessous (sans TP). STA = 40% MSI + 60% Automatique.</div>`;
+      host.appendChild(staHeader);
+
+      // STA sous-cartes
+      buildCard(host, { ...STA.msi,  coeff: '—' });
+      buildCard(host, { ...STA.auto, coeff: '—' });
+    }
+
+    function resetAll(){
+      document.querySelectorAll('input.inp').forEach(i=> i.value = '');
+      document.querySelectorAll('.avgVal').forEach(s=> s.textContent = fmt(0));
+      document.getElementById('weighted-sum').textContent = fmt(0);
+      document.getElementById('overall').textContent = fmt(0);
+      document.getElementById('overall').style.color = 'var(--bad)';
+      const t = document.getElementById('sta-parent-title'); if(t) t.textContent = `STA = ${fmt(0)} (0.4×MSI + 0.6×Automatique)`;
+    }
+
+    function prefill(){
+      // Exemple simple pour vérifier (inclut l'exemple de Physique fourni)
+      const set = (key, vals) => {
+        const card = document.querySelector(`.card[data-key="${key}"]`);
+        if(!card) return;
+        card.querySelector('.ds').value = vals[0];
+        card.querySelector('.exam').value = vals[1];
+        card.querySelector('.test').value = vals[2];
+        const tp = card.querySelector('.tp'); if(tp && vals[3]!=null) tp.value = vals[3];
+        calcOne(card, SUBJECTS.find(s=>s.key===key) || STA.msi || STA.auto);
+      }
+      set('physique', [10,5,15,15]); // exemple du message
+      set('chimie',   [12,10,13,14]);
+      set('algebre',  [11,10,12]);
+      set('analyse',  [9,13,10]);
+      set('fr',       [14,12,13]);
+      set('en',       [15,14,16]);
+      set('info',     [13,12,10]);
+      // STA
+      const staM = document.querySelector('.card[data-key="sta_msi"]');
+      const staA = document.querySelector('.card[data-key="sta_auto"]');
+      staM.querySelector('.ds').value = 12; staM.querySelector('.exam').value = 11; staM.querySelector('.test').value = 13; calcOne(staM, STA.msi);
+      staA.querySelector('.ds').value = 14; staA.querySelector('.exam').value = 12; staA.querySelector('.test').value = 15; calcOne(staA, STA.auto);
+      calcAll();
+    }
+
+    // Init
+    makeUI();
+    calcAll();
+
+    document.getElementById('reset').addEventListener('click', resetAll);
+    document.getElementById('prefill').addEventListener('click', prefill);
+
+    // Recalcul global en cas de saisie
+    document.addEventListener('input', (e)=>{
+      if(e.target.matches('input.inp')) calcAll();
+    });
+  </script>
+</body>
+</html>
